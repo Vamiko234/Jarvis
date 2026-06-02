@@ -1,0 +1,44 @@
+# Jarvis configuration
+
+brain:
+  # Ollama host. Default local install listens here.
+  host: "http://localhost:11434"
+  # A tool-calling capable model. Pull with: ollama pull llama3.1
+  model: "llama3.1"
+  # Cap on tool-call -> result -> re-prompt rounds per user turn.
+  max_tool_iterations: 5
+
+assistant:
+  name: "Jarvis"
+  # Spoken replies are kept short; this caps printed/spoken length hints to the model.
+  persona: "polite"
+
+voice:
+  enabled: true
+  wake_word: "jarvis"
+  # Speech-to-text
+  stt_model: "base.en"        # faster-whisper model size
+  # Text-to-speech: "piper" (offline, natural) or "pyttsx3" (system voices)
+  tts_engine: "pyttsx3"
+  piper_voice: ""             # path to a piper .onnx voice model if tts_engine == piper
+
+skills:
+  # Toggle whole skill groups on/off.
+  system_control: true
+  files: true
+  web: true
+  productivity: true
+
+  # Roots that file search/read/write are restricted to (empty = home directory).
+  file_roots: []
+  # Where quick notes and reminders are stored.
+  data_dir: "~/.jarvis"
+
+safety:
+  # These actions ask for confirmation before running.
+  confirm_actions:
+    - shutdown
+    - restart
+    - delete_file
+  # Commands the assistant is never allowed to run.
+  blocked_actions: []

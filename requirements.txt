@@ -1,0 +1,26 @@
+# Core
+ollama>=0.3.0
+pydantic>=2.6
+PyYAML>=6.0
+
+# Web skill
+requests>=2.31
+duckduckgo-search>=6.1
+beautifulsoup4>=4.12
+
+# Productivity / clipboard
+pyperclip>=1.8
+
+# --- Voice (install on the Windows PC; optional on Linux dev) ---
+# sounddevice>=0.4
+# numpy>=1.26
+# faster-whisper>=1.0
+# openwakeword>=0.6
+# piper-tts>=1.2
+# pyttsx3>=2.90
+
+# --- Windows system control (Windows only) ---
+# pycaw>=20240210
+# comtypes>=1.3
+# pygetwindow>=0.0.9
+# pyautogui>=0.9
