@@ -71,7 +71,7 @@ def skill(
 
 def load_skills() -> None:
     """Import skill modules so their @skill decorators run (idempotent)."""
-    for mod in ("system_control", "files", "web", "productivity"):
+    for mod in ("system_control", "files", "web", "productivity", "agents"):
         importlib.import_module(f"jarvis.skills.{mod}")
 
 

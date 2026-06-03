@@ -1,44 +1,76 @@
 # Jarvis configuration
 
 brain:
-  # Ollama host. Default local install listens here.
   host: "http://localhost:11434"
-  # A tool-calling capable model. Pull with: ollama pull llama3.1
-  model: "llama3.1"
-  # Cap on tool-call -> result -> re-prompt rounds per user turn.
-  max_tool_iterations: 5
+  # Fallback model if router is disabled. With tiered routing, this is rarely used.
+  model: "qwen2.5:7b"
+  max_tool_iterations: 8
 
 assistant:
   name: "Jarvis"
-  # Spoken replies are kept short; this caps printed/spoken length hints to the model.
   persona: "polite"
 
 voice:
   enabled: true
   wake_word: "jarvis"
-  # Speech-to-text
-  stt_model: "base.en"        # faster-whisper model size
-  # Text-to-speech: "piper" (offline, natural) or "pyttsx3" (system voices)
+  stt_model: "base.en"
   tts_engine: "pyttsx3"
-  piper_voice: ""             # path to a piper .onnx voice model if tts_engine == piper
+  piper_voice: ""
+
+# Tiered model routing:
+#   fast   — simple commands, Q&A                  (resident in VRAM)
+#   smart  — agentic tasks, browser, research       (loaded on demand)
+#   vision — desktop screenshot + click control     (loaded on demand)
+# Pull with:
+#   ollama pull qwen2.5:7b
+#   ollama pull qwen2.5:32b
+#   ollama pull qwen2.5vl:7b
+models:
+  fast: "qwen2.5:7b"
+  smart: "qwen2.5:32b"
+  vision: "qwen2.5vl:7b"
+  keep_alive: "5m"
+
+browser:
+  headless: false
+  profile_dir: "~/.jarvis/browser_profile"
+  max_steps: 30
+  commit_keywords:
+    - "checkout"
+    - "place order"
+    - "buy now"
+    - "confirm order"
+    - "pay now"
+    - "submit order"
+    - "purchase"
+    - "confirm payment"
+    - "complete order"
+    - "send message"
+    - "submit form"
+
+agents:
+  browser_enabled: true
+  research_enabled: true
+  desktop_enabled: true
+  # pause_before_commit: stops for your yes/no before any commit action
+  # never_commit:        never clicks buy/pay/submit — hands those to you
+  # full:                fully autonomous (risky — can spend real money)
+  autonomy: "pause_before_commit"
+  max_research_sources: 8
+  max_research_steps: 12
 
 skills:
-  # Toggle whole skill groups on/off.
   system_control: true
   files: true
   web: true
   productivity: true
-
-  # Roots that file search/read/write are restricted to (empty = home directory).
+  agents: true
   file_roots: []
-  # Where quick notes and reminders are stored.
   data_dir: "~/.jarvis"
 
 safety:
-  # These actions ask for confirmation before running.
   confirm_actions:
     - shutdown
     - restart
     - delete_file
-  # Commands the assistant is never allowed to run.
   blocked_actions: []

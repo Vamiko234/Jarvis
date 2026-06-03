@@ -11,6 +11,7 @@ import json
 from typing import Any, Callable
 
 from ..config import Config
+from ..context import get_context
 from ..skills import (
     enabled_skills,
     get_skill,
@@ -37,6 +38,7 @@ class Brain:
                 "files": config.skills.files,
                 "web": config.skills.web,
                 "productivity": config.skills.productivity,
+                "agents": config.skills.agents,
             }
         )
         self._tools = tool_schemas(self._skills)
@@ -47,7 +49,7 @@ class Brain:
         ]
         if client is not None:
             self.client = client
-        else:  # pragma: no cover - exercised only with a real Ollama server
+        else:  # pragma: no cover
             import ollama
 
             self.client = ollama.Client(host=config.brain.host)
@@ -69,11 +71,35 @@ class Brain:
 
     def respond(self, user_text: str, confirm: ConfirmCallback = _default_confirm) -> str:
         """Process one user turn and return the assistant's final text reply."""
+        # Store confirm on context so agent skills can access it
+        try:
+            ctx = get_context()
+            ctx.confirm_cb = confirm
+            router = ctx.router
+        except RuntimeError:
+            router = None
+
+        # Pick model tier based on what the user asked
+        if router is not None:
+            model = router.model_for(user_text)
+        else:
+            model = self.config.brain.model
+
+        # Snapshot so a failed turn doesn't leave a dangling user/tool message
+        # that would corrupt the next request.
+        checkpoint = len(self.messages)
         self.messages.append({"role": "user", "content": user_text})
 
+        try:
+            return self._chat_loop(model, confirm)
+        except Exception:
+            del self.messages[checkpoint:]
+            raise
+
+    def _chat_loop(self, model: str, confirm: ConfirmCallback) -> str:
         for _ in range(self.config.brain.max_tool_iterations):
             reply = self.client.chat(
-                model=self.config.brain.model,
+                model=model,
                 messages=self.messages,
                 tools=self._tools,
             )
@@ -99,5 +125,5 @@ class Brain:
                 )
 
         # Ran out of tool iterations; ask the model for a final answer with no tools.
-        reply = self.client.chat(model=self.config.brain.model, messages=self.messages)
+        reply = self.client.chat(model=model, messages=self.messages)
         return (reply["message"].get("content") or "").strip()
