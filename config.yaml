@@ -24,11 +24,11 @@ voice:
 # Pull with:
 #   ollama pull qwen2.5:7b
 #   ollama pull qwen2.5:32b
-#   ollama pull qwen2.5-vl:7b
+#   ollama pull qwen2.5vl:7b
 models:
   fast: "qwen2.5:7b"
   smart: "qwen2.5:32b"
-  vision: "qwen2.5-vl:7b"
+  vision: "qwen2.5vl:7b"
   keep_alive: "5m"
 
 browser:

@@ -44,14 +44,14 @@ if errorlevel 1 (
     echo          Install Ollama from https://ollama.com/download then run:
     echo            ollama pull qwen2.5:7b
     echo            ollama pull qwen2.5:32b
-    echo            ollama pull qwen2.5-vl:7b
+    echo            ollama pull qwen2.5vl:7b
 ) else (
     echo Pulling qwen2.5:7b  (fast tier - ~4GB^)...
     ollama pull qwen2.5:7b
     echo Pulling qwen2.5:32b (smart tier - ~20GB^)...
     ollama pull qwen2.5:32b
-    echo Pulling qwen2.5-vl:7b (vision tier - ~5GB^)...
-    ollama pull qwen2.5-vl:7b
+    echo Pulling qwen2.5vl:7b (vision tier - ~5GB^)...
+    ollama pull qwen2.5vl:7b
 )
 
 echo.

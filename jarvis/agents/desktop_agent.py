@@ -1,6 +1,6 @@
 """Desktop vision agent: screenshot → vision LLM → pyautogui action (experimental).
 
-Uses a vision-capable local model (e.g. qwen2.5-vl:7b) to look at the screen
+Uses a vision-capable local model (e.g. qwen2.5vl:7b) to look at the screen
 and decide what to click/type/press next. This is intentionally marked
 experimental — local vision models are less reliable than browser automation.
 

@@ -46,7 +46,7 @@ class SafetyConfig(BaseModel):
 class ModelTiersConfig(BaseModel):
     fast: str = "qwen2.5:7b"
     smart: str = "qwen2.5:32b"
-    vision: str = "qwen2.5-vl:7b"
+    vision: str = "qwen2.5vl:7b"
     keep_alive: str = "5m"
 
 

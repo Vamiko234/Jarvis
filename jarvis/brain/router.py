@@ -3,7 +3,7 @@
 Classifies requests and returns the appropriate Ollama model:
   fast   — simple commands, Q&A, single-step tasks   (e.g. qwen2.5:7b, stays resident)
   smart  — multi-step agentic tasks, browser, research (e.g. qwen2.5:32b, loaded on demand)
-  vision — desktop screenshot + click control         (e.g. qwen2.5-vl:7b, loaded on demand)
+  vision — desktop screenshot + click control         (e.g. qwen2.5vl:7b, loaded on demand)
 """
 
 from __future__ import annotations

@@ -108,7 +108,7 @@ Three tiers, automatically selected per request:
 |---------|------------------|-------------------------------------------|
 | `fast`  | `qwen2.5:7b`     | Simple Q&A, system commands, notes, time  |
 | `smart` | `qwen2.5:32b`    | Browser tasks, research, multi-step plans |
-| `vision`| `qwen2.5-vl:7b`  | Desktop screenshot + click control        |
+| `vision`| `qwen2.5vl:7b`  | Desktop screenshot + click control        |
 
 The tier badge in the UI (`7B` / `32B` / `VL`) updates as you type, showing
 which model will handle your request.
@@ -129,7 +129,7 @@ brain:
 models:
   fast:   "qwen2.5:7b"
   smart:  "qwen2.5:32b"
-  vision: "qwen2.5-vl:7b"
+  vision: "qwen2.5vl:7b"
 
 browser:
   headless: false                  # false = visible browser window
