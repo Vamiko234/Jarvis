@@ -42,12 +42,42 @@ class SafetyConfig(BaseModel):
     blocked_actions: list[str] = Field(default_factory=list)
 
 
+class ModelTiersConfig(BaseModel):
+    fast: str = "qwen2.5:7b"
+    smart: str = "qwen2.5:32b"
+    vision: str = "qwen2.5-vl:7b"
+    keep_alive: str = "5m"
+
+
+class BrowserConfig(BaseModel):
+    headless: bool = False
+    profile_dir: str = "~/.jarvis/browser_profile"
+    max_steps: int = 30
+    commit_keywords: list[str] = Field(default_factory=lambda: [
+        "checkout", "place order", "buy now", "confirm order",
+        "pay now", "submit order", "purchase", "confirm payment",
+        "complete order", "send message", "submit form",
+    ])
+
+
+class AgentsConfig(BaseModel):
+    browser_enabled: bool = True
+    research_enabled: bool = True
+    desktop_enabled: bool = True
+    autonomy: str = "pause_before_commit"
+    max_research_sources: int = 8
+    max_research_steps: int = 12
+
+
 class Config(BaseModel):
     brain: BrainConfig = Field(default_factory=BrainConfig)
     assistant: AssistantConfig = Field(default_factory=AssistantConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
+    models: ModelTiersConfig = Field(default_factory=ModelTiersConfig)
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
 
     @property
     def data_path(self) -> Path:

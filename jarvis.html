@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis — design prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /*
+      Jarvis — static design prototype.
+
+      This is a self-contained showcase of the interface: no server, no network.
+      The conversation, task tracker, and status strip are seeded with realistic
+      demo state so the layout, type scale, and interactions can be reviewed in
+      isolation. The live, server-wired UI lives at jarvis/ui/static/index.html.
+
+      Design constraints (anti-slop):
+        - JetBrains Mono only
+        - exactly three type sizes: 11 / 12 / 13px
+        - one accent — amber #F59E0B — and nothing else chromatic except state greens/reds
+        - no white backgrounds, no gradients, no border-radius > 8px on containers
+        - no decorative icons; glyphs carry meaning only
+    */
+    :root {
+      --bg-base:    #0A0A0C;
+      --bg-raised:  #111115;
+      --bg-surface: #17171D;
+      --text-primary:   #E8E8F0;
+      --text-secondary: #7A7A90;
+      --text-muted:     #3D3D50;
+      --accent:     #F59E0B;
+      --accent-dim: rgba(245, 158, 11, 0.12);
+      --success:    #22C55E;
+      --error:      #EF4444;
+      --font: 'JetBrains Mono', 'Courier New', monospace;
+      --radius: 4px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      grid-template-rows: 1fr 48px 24px;
+      height: 100vh;
+      overflow: hidden;
+      transition: grid-template-columns 140ms ease-out;
+    }
+    .layout.tracker-hidden {
+      grid-template-columns: 1fr 0px;
+    }
+
+    /* ── Conversation panel ─────────────────────────────────────────── */
+    .conversation {
+      grid-column: 1;
+      grid-row: 1;
+      overflow-y: auto;
+      padding: 24px 32px 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .conversation::-webkit-scrollbar { width: 4px; }
+    .conversation::-webkit-scrollbar-track { background: transparent; }
+    .conversation::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+
+    .msg {
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      gap: 8px;
+      padding: 6px 0;
+      position: relative;
+    }
+    .msg:hover .msg-time { opacity: 1; }
+
+    /* user turns get a quiet gutter marker; jarvis turns get nothing */
+    .msg-gutter {
+      font-size: 13px;
+      color: var(--text-muted);
+      user-select: none;
+      line-height: 1.6;
+    }
+
+    .msg-body { color: var(--text-primary); grid-column: 2; }
+    .msg.jarvis .msg-body { color: var(--text-secondary); }
+    .msg.user .msg-body   { color: var(--text-primary); }
+
+    .msg-time {
+      position: absolute;
+      right: 0;
+      top: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 80ms ease-out;
+    }
+
+    .tool-call {
+      grid-column: 2;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 1px 0;
+    }
+    .tool-call::before { content: "↳ "; color: var(--text-muted); }
+    .tool-call .ok  { color: var(--success); }
+
+    /* expandable sources block */
+    .sources {
+      grid-column: 2;
+      margin: 4px 0 2px;
+    }
+    .sources summary {
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      display: inline-block;
+      padding: 1px 0;
+    }
+    .sources summary:hover { color: var(--accent); }
+    .sources summary::after { content: " →"; color: var(--text-muted); }
+    .sources[open] summary::after { content: " ↓"; }
+    .sources-list {
+      margin-top: 6px;
+      border-left: 1px solid var(--bg-surface);
+      padding-left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sources-list a {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sources-list a:hover { color: var(--accent); }
+    .sources-list a::before { content: attr(data-n) ". "; color: var(--text-muted); }
+
+    .thinking {
+      grid-column: 2;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .ellipsis::after {
+      content: '';
+      animation: dots 1.4s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+    }
+
+    /* ── Task tracker ───────────────────────────────────────────────── */
+    .task-panel {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--bg-raised);
+      border-left: 1px solid var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .layout.tracker-hidden .task-panel { display: none; }
+
+    .task-header {
+      padding: 12px 14px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--bg-surface);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .task-toggle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .task-toggle:hover { color: var(--accent); }
+
+    .task-steps {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .task-steps::-webkit-scrollbar { width: 3px; }
+    .task-steps::-webkit-scrollbar-thumb { background: var(--text-muted); }
+
+    .step {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 6px;
+      padding: 5px 14px;
+      align-items: start;
+    }
+    .step-icon {
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .step-icon.done    { color: var(--success); }
+    .step-icon.active  { color: var(--accent); }
+    .step-icon.blocked { color: var(--error); }
+
+    .step-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .step-label.active  { color: var(--text-primary); }
+    .step-label.done    { color: var(--text-muted); }
+    .step-label.blocked { color: var(--error); }
+    .step-label.active .ellipsis::after { color: var(--accent); }
+
+    .commit-gate {
+      margin: 8px 12px 4px;
+      padding: 8px 12px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      width: calc(100% - 24px);
+      text-align: left;
+      transition: background 80ms ease-out;
+    }
+    .commit-gate:hover  { background: rgba(245, 158, 11, 0.20); }
+    .commit-gate:active { background: rgba(245, 158, 11, 0.28); }
+    .commit-gate .action {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .deny-btn {
+      margin: 0 12px 12px;
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--bg-surface);
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 11px;
+      cursor: pointer;
+      width: calc(100% - 24px);
+      text-align: left;
+      transition: color 80ms ease-out, border-color 80ms ease-out;
+    }
+    .deny-btn:hover { color: var(--error); border-color: var(--error); }
+
+    /* ── Command bar ────────────────────────────────────────────────── */
+    .command-bar {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      background: var(--bg-raised);
+      border-top: 1px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+    .command-form {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      gap: 8px;
+    }
+    .command-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 13px;
+      height: 100%;
+      caret-color: var(--accent);
+    }
+    .command-input::placeholder { color: var(--text-muted); }
+
+    .waveform {
+      flex: 1;
+      display: none;
+      align-items: center;
+      gap: 2px;
+      height: 22px;
+    }
+    .waveform.active { display: flex; }
+    .wave-bar {
+      width: 3px;
+      background: var(--accent);
+      border-radius: 1px;
+      min-height: 2px;
+      transition: height 70ms ease-out;
+    }
+
+    .model-tier-badge {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      padding: 2px 6px;
+      border: 1px solid var(--bg-surface);
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .model-tier-badge.smart  { color: var(--accent); border-color: rgba(245,158,11,0.3); }
+    .model-tier-badge.vision { color: #A78BFA; border-color: rgba(167,139,250,0.3); }
+
+    .mic-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+      flex-shrink: 0;
+      transition: color 80ms ease-out, background 80ms ease-out;
+    }
+    .mic-btn:hover { color: var(--text-primary); background: var(--bg-surface); }
+    .mic-btn.listening { color: var(--accent); }
+    .mic-btn svg { width: 15px; height: 15px; }
+
+    /* ── Status strip ───────────────────────────────────────────────── */
+    .status-strip {
+      grid-column: 1 / 3;
+      grid-row: 3;
+      background: var(--bg-base);
+      border-top: 1px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+    }
+    .status-left  { color: var(--text-muted); }
+    .status-reveal {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 11px;
+      cursor: pointer;
+      display: none;
+    }
+    .status-reveal.show { display: inline; }
+    .status-reveal:hover { color: var(--accent); }
+    .status-right {
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .listen-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+  </style>
+</head>
+<body>
+<div class="layout" id="layout">
+
+  <!-- Conversation panel -->
+  <div class="conversation" id="conversation">
+
+    <!-- Turn 1 — research, complete -->
+    <div class="msg user">
+      <span class="msg-gutter">›</span>
+      <span class="msg-body">research the best mechanical switches for a quiet office keyboard</span>
+      <span class="msg-time">14:02:11</span>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <span class="msg-body">Silent linear switches are the consensus pick — Gateron Silent Red and Cherry MX Silent Red lead on noise dampening, with the Boba U4 (silent tactile) preferred if you still want a bump. Full comparison saved to the report.</span>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <details class="sources">
+        <summary>8 sources</summary>
+        <div class="sources-list">
+          <a href="#" data-n="1">rtings.com/keyboard/learn/silent-switches</a>
+          <a href="#" data-n="2">keychron.com/blogs/news/quietest-switches</a>
+          <a href="#" data-n="3">reddit.com/r/MechanicalKeyboards/silent</a>
+          <a href="#" data-n="4">switchandclick.com/silent-linear-roundup</a>
+          <a href="#" data-n="5">theremingoat.com/gateron-silent-red-review</a>
+          <a href="#" data-n="6">milktooth.io/boba-u4-measurements</a>
+          <a href="#" data-n="7">cherrymx.de/en/mx-silent-red.html</a>
+          <a href="#" data-n="8">nathan.sh/posts/office-keyboard-noise</a>
+        </div>
+      </details>
+    </div>
+
+    <!-- Turn 2 — browser task, in progress -->
+    <div class="msg user">
+      <span class="msg-gutter">›</span>
+      <span class="msg-body">go to amazon and add a Keychron K8 with silent reds to my cart</span>
+      <span class="msg-time">14:06:43</span>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <div class="tool-call">navigate → amazon.com <span class="ok">✓</span></div>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <div class="tool-call">type[search] → "Keychron K8 silent red" <span class="ok">✓</span></div>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <div class="tool-call">click[result 2] → product page <span class="ok">✓</span></div>
+    </div>
+    <div class="msg jarvis">
+      <span class="msg-gutter"></span>
+      <span class="thinking">reading product options<span class="ellipsis"></span></span>
+    </div>
+
+  </div>
+
+  <!-- Task tracker -->
+  <div class="task-panel">
+    <div class="task-header">
+      <span>active task</span>
+      <button class="task-toggle" id="task-toggle" onclick="toggleTracker()">hide</button>
+    </div>
+    <div class="task-steps" id="task-steps">
+      <!-- seeded steps; states are illustrative -->
+      <div class="step"><span class="step-icon done">✓</span><span class="step-label done">Open browser</span></div>
+      <div class="step"><span class="step-icon done">✓</span><span class="step-label done">Navigate to amazon.com</span></div>
+      <div class="step"><span class="step-icon done">✓</span><span class="step-label done">Search "Keychron K8 silent red"</span></div>
+      <div class="step"><span class="step-icon done">✓</span><span class="step-label done">Open product page</span></div>
+      <div class="step" id="step-active"><span class="step-icon active">▶</span><span class="step-label active">Select silent red variant<span class="ellipsis"></span></span></div>
+      <div class="step" id="step-blocked"><span class="step-icon blocked">⊘</span><span class="step-label blocked">Add to cart</span></div>
+      <div class="step"><span class="step-icon pending">○</span><span class="step-label">Verify cart contents</span></div>
+      <div class="step"><span class="step-icon pending">○</span><span class="step-label">Report back</span></div>
+    </div>
+    <button class="commit-gate" id="commit-gate" onclick="confirmStep()">
+      Confirm &amp; continue
+      <span class="action">add to cart · $89.00 · ships to home</span>
+    </button>
+    <button class="deny-btn" onclick="denyStep()">Cancel task</button>
+  </div>
+
+  <!-- Command bar -->
+  <div class="command-bar">
+    <form class="command-form" id="command-form" onsubmit="return false;">
+      <div class="waveform active" id="waveform"></div>
+      <input
+        class="command-input"
+        id="command-input"
+        type="text"
+        placeholder="Ask or instruct Jarvis…   (Ctrl+K focus · Ctrl+M mic)"
+        autocomplete="off"
+        spellcheck="false"
+        style="display:none"
+      >
+      <span class="model-tier-badge smart" id="tier-badge">32B</span>
+      <button type="button" class="mic-btn listening" id="mic-btn" onclick="toggleMic()" title="Ctrl+M">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0014 0"/>
+          <line x1="12" y1="21" x2="12" y2="17"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <!-- Status strip -->
+  <div class="status-strip">
+    <span class="status-left">qwen2.5:32b · 847ms</span>
+    <button class="status-reveal" id="status-reveal" onclick="toggleTracker()">task ›</button>
+    <span class="status-right">
+      <span class="listen-dot"></span>
+      <span>listening</span>
+    </span>
+  </div>
+
+</div>
+
+<script>
+/* ───────────────────────────────────────────────────────────────────────
+   Static prototype behavior. Nothing here talks to a server — the demo
+   state is hardcoded above and these handlers just exercise the
+   interactions so the design can be reviewed live.
+   ─────────────────────────────────────────────────────────────────────── */
+
+const layout    = document.getElementById('layout');
+const input     = document.getElementById('command-input');
+const waveform  = document.getElementById('waveform');
+const micBtn    = document.getElementById('mic-btn');
+const tierBadge = document.getElementById('tier-badge');
+const taskToggle = document.getElementById('task-toggle');
+const statusReveal = document.getElementById('status-reveal');
+
+// ── Waveform — 34 amber bars, multi-sine amplitude so motion looks natural ──
+const BAR_COUNT = 34;
+for (let i = 0; i < BAR_COUNT; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'wave-bar';
+  waveform.appendChild(bar);
+}
+const waveBars = Array.from(waveform.querySelectorAll('.wave-bar'));
+let micActive = true;
+let waveStart = performance.now();
+let waveFrame;
+
+function animateWave(now) {
+  const t = (now - waveStart) / 1000;
+  waveBars.forEach((bar, i) => {
+    // three detuned sines + a slow envelope → organic, non-pulsing motion
+    const a = Math.sin(t * 4.0 + i * 0.45);
+    const b = Math.sin(t * 7.3 + i * 0.21);
+    const c = Math.sin(t * 2.1 - i * 0.33);
+    const env = 0.55 + 0.45 * Math.sin(t * 1.3 + i * 0.6);
+    const amp = Math.abs((a * 0.5 + b * 0.3 + c * 0.2)) * env;
+    bar.style.height = (2 + amp * 18).toFixed(1) + 'px';
+  });
+  waveFrame = requestAnimationFrame(animateWave);
+}
+
+function startWave() { waveStart = performance.now(); waveFrame = requestAnimationFrame(animateWave); }
+function stopWave()  { cancelAnimationFrame(waveFrame); waveBars.forEach(b => b.style.height = '2px'); }
+
+function toggleMic() {
+  micActive = !micActive;
+  if (micActive) {
+    micBtn.classList.add('listening');
+    waveform.classList.add('active');
+    input.style.display = 'none';
+    startWave();
+  } else {
+    micBtn.classList.remove('listening');
+    waveform.classList.remove('active');
+    stopWave();
+    input.style.display = '';
+    input.focus();
+  }
+}
+
+// ── Model-tier hint mirrors the router's classification as you type ──
+const SMART_RE  = /\b(order|buy|purchase|book|checkout|amazon|ebay|research|find out|look up|investigate|report|summarize|go to.*and|fill out|sign up|log.?in|browse|navigate|schedule|reserve|download|compare)\b/i;
+const VISION_RE = /\b(screenshot|what.s on.*screen|show me.*screen|desktop task|click.*anywhere|drag|taskbar)\b/i;
+
+input.addEventListener('input', () => {
+  const v = input.value;
+  let tier = 'fast', label = '7B';
+  if (VISION_RE.test(v))      { tier = 'vision'; label = 'VL'; }
+  else if (SMART_RE.test(v))  { tier = 'smart';  label = '32B'; }
+  tierBadge.textContent = label;
+  tierBadge.className = 'model-tier-badge' + (tier !== 'fast' ? ' ' + tier : '');
+});
+
+// ── Task tracker show/hide — bidirectional (the original always re-hid) ──
+function toggleTracker() {
+  const hidden = layout.classList.toggle('tracker-hidden');
+  taskToggle.textContent = hidden ? 'show' : 'hide';
+  statusReveal.classList.toggle('show', hidden);
+}
+
+// ── Commit gate — acknowledge, then advance the blocked step ──
+function confirmStep() {
+  const gate = document.getElementById('commit-gate');
+  const blocked = document.getElementById('step-blocked');
+  const active  = document.getElementById('step-active');
+
+  // immediate visual acknowledgement
+  gate.textContent = 'confirmed — continuing';
+  gate.style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    // previously-active step completes
+    active.querySelector('.step-icon').className = 'step-icon done';
+    active.querySelector('.step-icon').textContent = '✓';
+    active.querySelector('.step-label').className = 'step-label done';
+    active.querySelector('.step-label').textContent = 'Select silent red variant';
+
+    // blocked step becomes active
+    blocked.querySelector('.step-icon').className = 'step-icon active';
+    blocked.querySelector('.step-icon').textContent = '▶';
+    blocked.querySelector('.step-label').className = 'step-label active';
+    blocked.querySelector('.step-label').innerHTML = 'Add to cart<span class="ellipsis"></span>';
+
+    gate.remove();
+    document.querySelector('.deny-btn').remove();
+  }, 450);
+}
+
+function denyStep() {
+  const blocked = document.getElementById('step-blocked');
+  blocked.querySelector('.step-label').textContent = 'Add to cart — cancelled';
+  document.getElementById('commit-gate').remove();
+  document.querySelector('.deny-btn').remove();
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+    e.preventDefault();
+    toggleMic();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    if (micActive) toggleMic();
+    input.focus();
+  }
+});
+
+// boot
+startWave();
+</script>
+</body>
+</html>

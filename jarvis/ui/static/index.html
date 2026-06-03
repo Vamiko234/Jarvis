@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base:    #0A0A0C;
+      --bg-raised:  #111115;
+      --bg-surface: #17171D;
+      --text-primary:   #E8E8F0;
+      --text-secondary: #7A7A90;
+      --text-muted:     #3D3D50;
+      --accent:    #F59E0B;
+      --accent-dim: rgba(245, 158, 11, 0.12);
+      --success:   #22C55E;
+      --error:     #EF4444;
+      --font: 'JetBrains Mono', 'Courier New', monospace;
+      --radius: 4px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      grid-template-rows: 1fr 48px 24px;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Conversation panel ─────────────────────────────────────────── */
+    .conversation {
+      grid-column: 1;
+      grid-row: 1;
+      overflow-y: auto;
+      padding: 24px 32px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .conversation::-webkit-scrollbar { width: 4px; }
+    .conversation::-webkit-scrollbar-track { background: transparent; }
+    .conversation::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+
+    .msg {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      padding: 6px 0;
+      position: relative;
+    }
+    .msg:hover .msg-time { opacity: 1; }
+
+    .msg-role {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding-top: 2px;
+      user-select: none;
+    }
+    .msg-role.user  { color: var(--text-muted); }
+    .msg-role.jarvis { color: var(--accent); }
+
+    .msg-body { color: var(--text-primary); }
+
+    .msg-time {
+      position: absolute;
+      right: 0;
+      top: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 80ms ease-out;
+    }
+
+    .tool-call {
+      grid-column: 2;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0 4px;
+    }
+    .tool-call::before { content: "↳ "; color: var(--text-muted); }
+
+    .report-block {
+      background: var(--bg-raised);
+      border-left: 2px solid var(--text-muted);
+      padding: 8px 12px;
+      margin: 6px 0;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .report-block:hover { border-left-color: var(--accent); }
+    .report-block summary {
+      font-size: 11px;
+      color: var(--text-secondary);
+      list-style: none;
+    }
+    .report-block summary::before { content: "▶ "; font-size: 9px; }
+    .report-block[open] summary::before { content: "▼ "; }
+    .report-content {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .thinking {
+      grid-column: 2;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .thinking-dots::after {
+      content: '';
+      animation: dots 1.2s steps(3, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      33%  { content: '.'; }
+      66%  { content: '..'; }
+      100% { content: '...'; }
+    }
+
+    /* ── Task tracker ───────────────────────────────────────────────── */
+    .task-panel {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--bg-raised);
+      border-left: 1px solid var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .task-header {
+      padding: 12px 14px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    .task-steps {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .task-steps::-webkit-scrollbar { width: 3px; }
+    .task-steps::-webkit-scrollbar-thumb { background: var(--text-muted); }
+
+    .task-empty {
+      padding: 12px 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 6px;
+      padding: 5px 14px;
+      align-items: start;
+    }
+
+    .step-icon {
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .step-icon.done    { color: var(--success); }
+    .step-icon.active  { color: var(--accent); }
+    .step-icon.blocked { color: var(--error); }
+
+    .step-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .step-label.active  { color: var(--text-primary); }
+    .step-label.done    { color: var(--text-muted); }
+    .step-label.blocked { color: var(--error); }
+
+    .commit-gate {
+      margin: 8px 12px 12px;
+      padding: 8px 12px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      width: calc(100% - 24px);
+      text-align: left;
+      transition: background 80ms ease-out;
+      display: none;
+    }
+    .commit-gate:hover { background: rgba(245, 158, 11, 0.20); }
+    .commit-gate:active { background: rgba(245, 158, 11, 0.28); }
+
+    .commit-gate-action {
+      display: block;
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .deny-btn {
+      margin: 0 12px 8px;
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--bg-surface);
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 11px;
+      cursor: pointer;
+      width: calc(100% - 24px);
+      text-align: left;
+      display: none;
+      transition: color 80ms ease-out, border-color 80ms ease-out;
+    }
+    .deny-btn:hover { color: var(--error); border-color: var(--error); }
+
+    /* ── Command bar ────────────────────────────────────────────────── */
+    .command-bar {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      background: var(--bg-raised);
+      border-top: 1px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+
+    .command-form {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      gap: 8px;
+    }
+
+    .command-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 13px;
+      height: 100%;
+      caret-color: var(--accent);
+    }
+    .command-input::placeholder { color: var(--text-muted); }
+
+    .waveform {
+      flex: 1;
+      display: none;
+      align-items: center;
+      gap: 2px;
+      height: 20px;
+    }
+    .wave-bar {
+      width: 3px;
+      background: var(--accent);
+      border-radius: 1px;
+      min-height: 2px;
+      transition: height 60ms ease-out;
+    }
+
+    .model-tier-badge {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      padding: 2px 5px;
+      border: 1px solid var(--bg-surface);
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .model-tier-badge.smart  { color: var(--accent); border-color: rgba(245,158,11,0.3); }
+    .model-tier-badge.vision { color: #A78BFA; border-color: rgba(167,139,250,0.3); }
+
+    .mic-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+      flex-shrink: 0;
+      transition: color 80ms ease-out, background 80ms ease-out;
+    }
+    .mic-btn:hover { color: var(--text-primary); background: var(--bg-surface); }
+    .mic-btn.listening { color: var(--accent); }
+    .mic-btn svg { width: 15px; height: 15px; }
+
+    /* ── Status strip ───────────────────────────────────────────────── */
+    .status-strip {
+      grid-column: 1 / 3;
+      grid-row: 3;
+      background: var(--bg-base);
+      border-top: 1px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+
+    .status-model {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-listen {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .listen-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .listen-dot.active { background: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Conversation panel -->
+  <div class="conversation" id="conversation">
+    <div class="msg">
+      <span class="msg-role jarvis">J</span>
+      <span class="msg-body">Online. Say or type a command.</span>
+      <span class="msg-time" data-time></span>
+    </div>
+  </div>
+
+  <!-- Task tracker -->
+  <div class="task-panel">
+    <div class="task-header">active task</div>
+    <div class="task-steps" id="task-steps">
+      <div class="task-empty" id="task-empty">No active task.</div>
+    </div>
+    <button class="commit-gate" id="commit-gate" onclick="sendConfirm(true)">
+      Confirm &amp; continue
+      <span class="commit-gate-action" id="commit-action"></span>
+    </button>
+    <button class="deny-btn" id="deny-btn" onclick="sendConfirm(false)">
+      Cancel
+    </button>
+  </div>
+
+  <!-- Command bar -->
+  <div class="command-bar">
+    <form class="command-form" id="command-form" onsubmit="submitCommand(event)">
+      <div class="waveform" id="waveform">
+        <!-- populated by JS -->
+      </div>
+      <input
+        class="command-input"
+        id="command-input"
+        type="text"
+        placeholder="Ask or instruct Jarvis…"
+        autocomplete="off"
+        spellcheck="false"
+        autofocus
+      >
+      <span class="model-tier-badge" id="tier-badge">7B</span>
+      <button type="button" class="mic-btn" id="mic-btn" title="Ctrl+Space to toggle mic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0014 0"/>
+          <line x1="12" y1="21" x2="12" y2="17"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <!-- Status strip -->
+  <div class="status-strip">
+    <span class="status-model" id="status-model">—</span>
+    <span class="status-listen">
+      <span class="listen-dot" id="listen-dot"></span>
+      <span id="listen-label">idle</span>
+    </span>
+  </div>
+
+</div>
+
+<script>
+const conv      = document.getElementById('conversation');
+const input     = document.getElementById('command-input');
+const taskSteps = document.getElementById('task-steps');
+const taskEmpty = document.getElementById('task-empty');
+const commitBtn = document.getElementById('commit-gate');
+const denyBtn   = document.getElementById('deny-btn');
+const commitAct = document.getElementById('commit-action');
+const tierBadge = document.getElementById('tier-badge');
+const statusModel = document.getElementById('status-model');
+const micBtn    = document.getElementById('mic-btn');
+const waveform  = document.getElementById('waveform');
+const listenDot = document.getElementById('listen-dot');
+const listenLabel = document.getElementById('listen-label');
+
+let pendingConfirmId = null;
+let isProcessing = false;
+let micActive = false;
+let audioContext, analyser, micStream, animFrame;
+
+// ── Wave bars setup ────────────────────────────────────────────────────
+const BAR_COUNT = 20;
+for (let i = 0; i < BAR_COUNT; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'wave-bar';
+  bar.style.height = '2px';
+  waveform.appendChild(bar);
+}
+const waveBars = waveform.querySelectorAll('.wave-bar');
+
+function animateWave(dataArray) {
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(buf);
+  const step = Math.floor(buf.length / BAR_COUNT);
+  waveBars.forEach((bar, i) => {
+    const val = buf[i * step] / 255;
+    const h = Math.max(2, Math.round(val * 18));
+    bar.style.height = h + 'px';
+  });
+  animFrame = requestAnimationFrame(() => animateWave());
+}
+
+// ── Mic toggle ─────────────────────────────────────────────────────────
+async function toggleMic() {
+  if (micActive) {
+    stopMic();
+    return;
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new AudioContext();
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    audioContext.createMediaStreamSource(micStream).connect(analyser);
+
+    micActive = true;
+    micBtn.classList.add('listening');
+    listenDot.classList.add('active');
+    listenLabel.textContent = 'listening';
+    waveform.style.display = 'flex';
+    input.style.display = 'none';
+    animateWave();
+  } catch (e) {
+    appendMessage('jarvis', 'Microphone access denied. Use text input instead.');
+  }
+}
+
+function stopMic() {
+  if (!micActive) return;
+  cancelAnimationFrame(animFrame);
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  if (audioContext) audioContext.close();
+  micActive = false;
+  micBtn.classList.remove('listening');
+  listenDot.classList.remove('active');
+  listenLabel.textContent = 'idle';
+  waveform.style.display = 'none';
+  input.style.display = '';
+  waveBars.forEach(b => b.style.height = '2px');
+}
+
+micBtn.addEventListener('click', toggleMic);
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.code === 'Space') {
+    e.preventDefault();
+    toggleMic();
+  }
+});
+
+// ── Command input tier hint ────────────────────────────────────────────
+const SMART_RE = /\b(order|buy|purchase|book|checkout|amazon|ebay|research|find out|look up|investigate|write.*report|summarize|multi.?step|go to.*and|fill out|sign up|log.?in|browse|navigate to|schedule|reserve|download|compare)\b/i;
+const VISION_RE = /\b(screenshot|what.s on.*screen|show me.*screen|desktop task|click.*anywhere|drag|taskbar)\b/i;
+
+input.addEventListener('input', () => {
+  const v = input.value;
+  let tier = 'fast', label = '7B';
+  if (VISION_RE.test(v)) { tier = 'vision'; label = 'VL'; }
+  else if (SMART_RE.test(v)) { tier = 'smart'; label = '32B'; }
+  tierBadge.textContent = label;
+  tierBadge.className = 'model-tier-badge ' + (tier !== 'fast' ? tier : '');
+});
+
+// ── Message rendering ──────────────────────────────────────────────────
+function ts() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' +
+         d.getMinutes().toString().padStart(2,'0') + ':' +
+         d.getSeconds().toString().padStart(2,'0');
+}
+
+function appendMessage(role, content) {
+  // Check if content looks like a research report
+  const isReport = content.includes('## ') && content.includes('Sources');
+  const row = document.createElement('div');
+  row.className = 'msg';
+
+  const roleEl = document.createElement('span');
+  roleEl.className = 'msg-role ' + role;
+  roleEl.textContent = role === 'user' ? 'you' : 'J';
+
+  const time = document.createElement('span');
+  time.className = 'msg-time';
+  time.textContent = ts();
+
+  row.appendChild(roleEl);
+
+  if (isReport) {
+    const details = document.createElement('details');
+    details.className = 'report-block';
+    const lines = content.split('\n');
+    const firstLine = lines[0].replace(/^#+ /, '');
+    const summary = document.createElement('summary');
+    summary.textContent = firstLine + ' — report saved';
+    const pre = document.createElement('div');
+    pre.className = 'report-content';
+    pre.textContent = content;
+    details.appendChild(summary);
+    details.appendChild(pre);
+    row.appendChild(details);
+  } else {
+    const body = document.createElement('span');
+    body.className = 'msg-body';
+    body.textContent = content;
+    row.appendChild(body);
+  }
+
+  row.appendChild(time);
+  conv.appendChild(row);
+  conv.scrollTop = conv.scrollHeight;
+  return row;
+}
+
+function appendToolCall(text) {
+  const el = document.createElement('div');
+  el.className = 'msg';
+  const spacer = document.createElement('span');
+  spacer.className = 'msg-role';
+  const tc = document.createElement('div');
+  tc.className = 'tool-call';
+  tc.textContent = text;
+  el.appendChild(spacer);
+  el.appendChild(tc);
+  conv.appendChild(el);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function showThinking(show) {
+  const id = 'thinking-row';
+  document.getElementById(id)?.remove();
+  if (!show) return;
+  const row = document.createElement('div');
+  row.className = 'msg';
+  row.id = id;
+  const role = document.createElement('span');
+  role.className = 'msg-role jarvis';
+  role.textContent = 'J';
+  const body = document.createElement('span');
+  body.className = 'thinking';
+  body.innerHTML = '<span class="thinking-dots"></span>';
+  row.appendChild(role);
+  row.appendChild(body);
+  conv.appendChild(row);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+// ── Task steps ─────────────────────────────────────────────────────────
+const STEP_ICONS = { done: '✓', active: '▶', blocked: '⊘', pending: '○' };
+
+function renderSteps(steps) {
+  taskSteps.innerHTML = '';
+  if (!steps || steps.length === 0) {
+    taskSteps.appendChild(taskEmpty);
+    taskEmpty.style.display = '';
+    return;
+  }
+  taskEmpty.style.display = 'none';
+  steps.forEach((s, i) => {
+    const status = i < steps.length - 1 ? 'done' : (s.blocked ? 'blocked' : 'active');
+    const row = document.createElement('div');
+    row.className = 'step';
+    const icon = document.createElement('span');
+    icon.className = 'step-icon ' + status;
+    icon.textContent = STEP_ICONS[status] || '○';
+    const label = document.createElement('span');
+    label.className = 'step-label ' + status;
+    label.textContent = s.action || s;
+    row.appendChild(icon);
+    row.appendChild(label);
+    taskSteps.appendChild(row);
+  });
+}
+
+// ── Confirmation flow ──────────────────────────────────────────────────
+function showConfirmGate(action, id) {
+  pendingConfirmId = id;
+  commitAct.textContent = action;
+  commitBtn.style.display = '';
+  denyBtn.style.display = '';
+}
+
+function hideConfirmGate() {
+  pendingConfirmId = null;
+  commitBtn.style.display = 'none';
+  denyBtn.style.display = 'none';
+  commitAct.textContent = '';
+}
+
+async function sendConfirm(approved) {
+  if (!pendingConfirmId) return;
+  const id = pendingConfirmId;
+  hideConfirmGate();
+  appendToolCall(approved ? 'confirmed — continuing' : 'cancelled by user');
+  await fetch('/confirm-response', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, approved }),
+  });
+}
+
+// ── Status polling ─────────────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const res = await fetch('/status');
+    const data = await res.json();
+    if (data.model && data.model !== '—') {
+      statusModel.textContent = data.model + ' · ' + (data.latency_ms || '—') + 'ms';
+    }
+    if (data.tier) {
+      tierBadge.className = 'model-tier-badge ' + (data.tier !== 'fast' ? data.tier : '');
+    }
+    if (data.confirm_pending && !pendingConfirmId) {
+      showConfirmGate(data.confirm_pending.action, data.confirm_pending.id);
+    }
+  } catch (_) {}
+}
+setInterval(pollStatus, 800);
+
+// ── Submit command ─────────────────────────────────────────────────────
+async function submitCommand(e) {
+  e?.preventDefault();
+  const text = input.value.trim();
+  if (!text || isProcessing) return;
+  stopMic();
+
+  isProcessing = true;
+  input.value = '';
+  input.disabled = true;
+  tierBadge.textContent = '…';
+  tierBadge.className = 'model-tier-badge';
+
+  appendMessage('user', text);
+  showThinking(true);
+
+  try {
+    const res = await fetch('/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    showThinking(false);
+
+    if (data.error) {
+      appendMessage('jarvis', 'Error: ' + data.error);
+    } else {
+      if (data.steps && data.steps.length > 0) {
+        renderSteps(data.steps);
+        data.steps.forEach(s => appendToolCall((s.action || s) + ': ' + (s.observation || '').slice(0, 80)));
+      }
+      appendMessage('jarvis', data.reply || '(no reply)');
+      if (data.model) {
+        statusModel.textContent = data.model + ' · ' + (data.latency_ms || '—') + 'ms';
+      }
+    }
+  } catch (err) {
+    showThinking(false);
+    appendMessage('jarvis', 'Connection error — is the server running?');
+  }
+
+  isProcessing = false;
+  input.disabled = false;
+  input.focus();
+}
+
+// Keyboard: Enter submits, Ctrl+Enter newline (future)
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    submitCommand();
+  }
+});
+</script>
+</body>
+</html>
