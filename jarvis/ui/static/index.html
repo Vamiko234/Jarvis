@@ -358,9 +358,35 @@
       background: var(--text-muted);
     }
     .listen-dot.active { background: var(--accent); }
+
+    /* ── Ollama offline banner ──────────────────────────────────────── */
+    .offline-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #1a1005;
+      border-bottom: 1px solid rgba(245,158,11,0.35);
+      color: var(--accent);
+      font-size: 12px;
+      padding: 7px 16px;
+      z-index: 100;
+      align-items: center;
+      gap: 10px;
+    }
+    .offline-banner.show { display: flex; }
+    .offline-banner code {
+      background: rgba(245,158,11,0.12);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
   </style>
 </head>
 <body>
+<div class="offline-banner" id="offline-banner">
+  <span>⚠ Ollama is not running.</span>
+  <span>Start it: <code>ollama serve</code></span>
+  <span style="color:var(--text-muted)">Retrying…</span>
+</div>
 <div class="layout">
 
   <!-- Conversation panel -->
@@ -730,13 +756,46 @@ async function submitCommand(e) {
   input.focus();
 }
 
-// Keyboard: Enter submits, Ctrl+Enter newline (future)
+// Keyboard: Enter submits, Ctrl+K focuses input, Ctrl+M toggles mic
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     submitCommand();
   }
 });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    input.focus();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+    e.preventDefault();
+    toggleMic();
+  }
+});
+
+// ── Ollama health check ─────────────────────────────────────────────────
+const offlineBanner = document.getElementById('offline-banner');
+let ollamaOnline = true;
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health');
+    const data = await res.json();
+    if (data.ollama) {
+      if (!ollamaOnline) {
+        ollamaOnline = true;
+        offlineBanner.classList.remove('show');
+        appendMessage('jarvis', 'Ollama is back online.');
+      }
+    } else {
+      ollamaOnline = false;
+      offlineBanner.classList.add('show');
+    }
+  } catch (_) {}
+}
+checkHealth();
+setInterval(checkHealth, 5000);
 </script>
 </body>
 </html>

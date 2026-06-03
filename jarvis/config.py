@@ -33,6 +33,7 @@ class SkillsConfig(BaseModel):
     files: bool = True
     web: bool = True
     productivity: bool = True
+    agents: bool = True
     file_roots: list[str] = Field(default_factory=list)
     data_dir: str = "~/.jarvis"
 

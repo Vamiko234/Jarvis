@@ -45,7 +45,17 @@ class Assistant:
                 break
             if not user:
                 continue
-            reply = self.brain.respond(user, confirm=self._text_confirm)
+            try:
+                reply = self.brain.respond(user, confirm=self._text_confirm)
+            except ConnectionError:
+                print(
+                    f"{self.config.assistant.name} › [Ollama is not running. "
+                    "Start it with `ollama serve` then try again.]\n"
+                )
+                continue
+            except Exception as exc:
+                print(f"{self.config.assistant.name} › [Error: {exc}]\n")
+                continue
             print(f"{self.config.assistant.name} › {reply}\n")
 
     def run_voice(self) -> None:  # pragma: no cover - requires audio hardware

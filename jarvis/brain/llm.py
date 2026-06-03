@@ -38,7 +38,7 @@ class Brain:
                 "files": config.skills.files,
                 "web": config.skills.web,
                 "productivity": config.skills.productivity,
-                "agents": getattr(config.skills, "agents", True),
+                "agents": config.skills.agents,
             }
         )
         self._tools = tool_schemas(self._skills)
@@ -85,8 +85,18 @@ class Brain:
         else:
             model = self.config.brain.model
 
+        # Snapshot so a failed turn doesn't leave a dangling user/tool message
+        # that would corrupt the next request.
+        checkpoint = len(self.messages)
         self.messages.append({"role": "user", "content": user_text})
 
+        try:
+            return self._chat_loop(model, confirm)
+        except Exception:
+            del self.messages[checkpoint:]
+            raise
+
+    def _chat_loop(self, model: str, confirm: ConfirmCallback) -> str:
         for _ in range(self.config.brain.max_tool_iterations):
             reply = self.client.chat(
                 model=model,

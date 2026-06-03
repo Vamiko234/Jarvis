@@ -75,6 +75,20 @@ def index() -> FileResponse:
     return FileResponse(str(_STATIC / "index.html"))
 
 
+@app.get("/health")
+def health() -> JSONResponse:
+    """Returns whether Ollama is reachable. Used by the UI on startup."""
+    if _assistant is None:
+        return JSONResponse({"ollama": False, "error": "not initialized"})
+    try:
+        import ollama
+        client = ollama.Client(host=_assistant.config.brain.host)
+        client.list()
+        return JSONResponse({"ollama": True})
+    except Exception as exc:
+        return JSONResponse({"ollama": False, "error": str(exc)})
+
+
 @app.post("/command")
 def command(body: dict) -> JSONResponse:
     if _assistant is None:
@@ -102,7 +116,16 @@ def command(body: dict) -> JSONResponse:
         _state["model"] = model_name
 
     t0 = time.monotonic()
-    reply = _assistant.brain.respond(text, confirm=_web_confirm)
+    try:
+        reply = _assistant.brain.respond(text, confirm=_web_confirm)
+    except ConnectionError:
+        return JSONResponse(
+            {"error": "Can't reach Ollama. Start it with `ollama serve` and make "
+                      "sure the model is pulled (e.g. `ollama pull qwen2.5:7b`)."},
+            status_code=503,
+        )
+    except Exception as exc:  # surface a readable message instead of a bare 500
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"}, status_code=500)
     latency = round((time.monotonic() - t0) * 1000)
 
     with _state_lock:
